@@ -125,6 +125,7 @@
 				}
 				view {
 					display: inline-block;
+					font-size: 35rpx;
 				}
 				i {
 						font-size: 50rpx;

@@ -36,9 +36,9 @@
                 <view>{{durationText}}</view>
             </view>
             <view class="content_bottom_btn">
-                <view :class="listPatternClass[listPattern-1]" @click="listPatternClick"></view>
+                <view :class="listPatternClass[listPattern - 1]" @click="listPatternClick"></view>
                 <view class="iconfont icon-shangyiqu101" @click="switchSong('top')"></view>
-                <view :class="paused === true?'iconfont icon-zanting':'iconfont icon-bofang'" @click="palyClick"></view>
+                <view :class="paused === true?'iconfont icon-zanting':'iconfont icon-bofang2'" @click="palyClick"></view>
                 <view class="iconfont icon-xiayiqu101" @click="switchSong('bottom')"></view>
                 <view @click="listShowClick" class="iconfont icon-bofangliebiao"></view>
             </view>
@@ -95,10 +95,12 @@ export default {
         }
     },
     onLoad(option) {
-        this.playMusic(option.id)
+        if(option.id != this.thisPlay.id) {
+            this.playMusic(option.id) 
+        }
     },
     onShow() {
-        this.listPattern = uni.getStorageSync('listPattern')
+        this.listPattern = uni.getStorageSync('listPattern')===''? 1 : uni.getStorageSync('listPattern')
     },
     mounted() {
         const query = uni.createSelectorQuery().select('#dragBtn');
