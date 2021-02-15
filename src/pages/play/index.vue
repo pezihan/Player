@@ -17,6 +17,9 @@
             <view :class="paused===true?'content_cd_center':'content_cd_center stop'" id="cdRef">
                 <image :src="thisPlay.img"></image>
             </view>
+            <view :class="paused===true?'pulse1':'pulse1 stop'"></view>
+            <view :class="paused===true?'pulse2':'pulse2 stop'"></view>
+            <view :class="paused===true?'pulse3':'pulse3 stop'"></view>
         </view>
         <!-- 底部控制栏 -->
         <view class="content_bottom">
@@ -33,10 +36,10 @@
                 <view>{{durationText}}</view>
             </view>
             <view class="content_bottom_btn">
-                <view class="iconfont icon-icon-"></view>
-                <view class="iconfont icon-shangyiqu101"></view>
+                <view :class="listPatternClass[listPattern-1]" @click="listPatternClick"></view>
+                <view class="iconfont icon-shangyiqu101" @click="switchSong('top')"></view>
                 <view :class="paused === true?'iconfont icon-zanting':'iconfont icon-bofang'" @click="palyClick"></view>
-                <view class="iconfont icon-xiayiqu101"></view>
+                <view class="iconfont icon-xiayiqu101" @click="switchSong('bottom')"></view>
                 <view @click="listShowClick" class="iconfont icon-bofangliebiao"></view>
             </view>
         </view>
@@ -44,7 +47,7 @@
         <view class="content_list" :style="'bottom:'+animationData" v-show="listShow">
             <view>播放列表</view>
             <scroll-view class="content_list_for" scroll-y>
-                <view class="list_for" v-for="item in songList" :key="item.id" @click="playSongList(item.id)">
+                <view :class="item.pitchOnClass===true?'list_for pitchOn':'list_for'" v-for="item in musicList" :key="item.id" @click="playSongList(item.id)">
                     <view>{{item.songName}}</view>
                     <view> - {{item.name}}</view>
                 </view>
@@ -82,16 +85,20 @@ export default {
             thiLeft:0,
             // 存储进度条的width宽
             theWidth: 0,
-            // 播放列表
-            songList:[],
             // 播放列表显示与移动
             listShow:false,
-            animationData: '-60vh'
+            animationData: '-60vh',
+            // 列表播放模式  1 列表循环 2 列表顺序播放  3 单曲循环
+            listPattern: 1,
+            // 列表图标样式
+            listPatternClass: ['iconfont icon-icon-','iconfont icon-suijibofang01','iconfont icon-hanhan-01-01']
         }
     },
     onLoad(option) {
         this.playMusic(option.id)
-        this.songList = uni.getStorageSync('musicList') || []
+    },
+    onShow() {
+        this.listPattern = uni.getStorageSync('listPattern')
     },
     mounted() {
         const query = uni.createSelectorQuery().select('#dragBtn');
@@ -107,14 +114,19 @@ export default {
         // 播放音乐
         async playMusic(id) {
             this.musicList = uni.getStorageSync('musicList') || []
+            uni.setStorageSync('playId',id)
             this.musicList.forEach((item) => {
                 if(item.id == id) {
                     this.thisPlay.id = item.id
                     this.thisPlay.songName = item.songName
                     this.thisPlay.name = item.name
                     this.thisPlay.img = item.img
+                    item.pitchOnClass = true
+                } else {
+                    item.pitchOnClass = false
                 }
             })
+            uni.setStorageSync('musicList',this.musicList)
             const {data:resData} = await this.request({url: '/song/url',data: {id:id},method: 'get'})
             this.thisPlay.url = resData[0].url
             // 播放音乐
@@ -122,7 +134,70 @@ export default {
             aduio.src = this.thisPlay.url
             aduio.title = this.thisPlay.songName
             this.palyClick(false)
+            // 音频自然播放结束
+            aduio.onEnded(() => {
+                this.switchSong('next')
+            })
         },
+        // 切换音频
+        switchSong(text) {
+            var index = this.musicList.findIndex(v => v.id===this.thisPlay.id);
+            if(this.listPattern === 1) {
+                // 列表循环  默认
+                if(text === 'top') {
+                    // 上一曲
+                    if(index == parseInt(0)) {
+                        this.playMusic(this.musicList[this.musicList.length - 1].id)
+                        return
+                    }
+                    this.playMusic(this.musicList[index - 1].id)
+                } else {
+                    // 下一曲
+                    if(this.musicList.length === index+1) {
+                        this.playMusic(this.musicList[0].id)
+                        return
+                    }
+                    this.playMusic(this.musicList[index + 1].id)
+                }
+            } else if(this.listPattern === 2) {
+                // 随机播放
+                const suijiIndex = this.randomNum(0,this.musicList.length - 1)
+                this.playMusic(this.musicList[suijiIndex].id)
+            } else {
+                // 单曲循环
+                if(text === 'next') {
+                    this.playMusic(this.musicList[index].id)
+                } else  if(text === 'top') {
+                    // 上一曲
+                    if(index == parseInt(0)) {
+                        this.playMusic(this.musicList[this.musicList.length - 1].id)
+                        return
+                    }
+                    this.playMusic(this.musicList[index - 1].id)
+                } else {
+                    // 下一曲
+                    if(this.musicList.length === index+1) {
+                        this.playMusic(this.musicList[0].id)
+                        return
+                    }
+                    this.playMusic(this.musicList[index + 1].id)
+                }
+            }
+        },
+        // 随机数生成
+        randomNum(minNum,maxNum){ 
+			    switch(arguments.length){ 
+			        case 1: 
+			            return parseInt(Math.random()*minNum+1,10); 
+			        break; 
+			        case 2: 
+			            return parseInt(Math.random()*(maxNum-minNum+1)+minNum,10); 
+			        break; 
+			            default: 
+			                return 0; 
+			            break; 
+			    } 
+		},
         // 音频播放暂停定时器
         palyClick(val) {
             const aduio = uni.getBackgroundAudioManager()
@@ -173,6 +248,19 @@ export default {
             setTimeout(()=>{
                 this.listShow = false
             },200)
+        },
+        // 播放模式切换
+        listPatternClick() {
+            if (this.listPattern === 1) {
+                this.listPattern = 2
+                uni.setStorageSync('listPattern', 2)
+            } else if(this.listPattern === 2) {
+                this.listPattern = 3
+                uni.setStorageSync('listPattern', 3)
+            } else {
+                this.listPattern = 1
+                uni.setStorageSync('listPattern', 1)
+            }
         }
     },
     computed: {
@@ -221,6 +309,12 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+    // 选中
+    .pitchOn {
+        view {
+            color: #e75866!important;
+        }
+    }
     .status_bar {
 		height: var(--status-bar-height);
 		width: 100%;
@@ -287,6 +381,7 @@ export default {
             border-radius: 50%;
             background-color: rgba(255, 255, 255, .2);
             position: relative;
+            z-index: 4;
             animation: move 5s linear infinite;
             image {
                 position: absolute;
@@ -298,6 +393,25 @@ export default {
                 transform: translate(-50%,-50%);
             }
         }
+        .pulse1,.pulse2,.pulse3 {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            width: 500rpx;
+            height: 500rpx;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #d4d4d4;
+            animation: pulse 3s linear infinite;
+            z-index: 2;
+        }
+        // 其余两个环延时动画
+        .pulse2 {
+            animation-delay: 0.5s;
+        }
+        .pulse3 {
+            animation-delay: 1s;
+        }
         .stop {
             animation-play-state: paused;
         }
@@ -308,6 +422,19 @@ export default {
             100% {
                 transform: rotate(360deg);
             }
+        }
+        @keyframes pulse {
+                0% {}
+                70% {
+                    width: 450rpx;
+                    height: 450rpx;
+                    opacity: 1;
+                }
+                100% {
+                    width: 750rpx;
+                    height: 750rpx;
+                    opacity: 0;
+                }
         }
     }
     // 按钮部分
@@ -382,12 +509,11 @@ export default {
         width: calc(100vw - 40rpx);
         height: 60vh;
         background-color: #fff;
-        border-radius: 30rpx;
+        border-radius: 40rpx;
         color: #000;
         padding: 20rpx;
         overflow: hidden;
-        transition: .2s;
-        // bottom: -60vh;
+        transition: .3s;
         .content_list_for {
             height: calc(60vh - 220rpx);
             .list_for {

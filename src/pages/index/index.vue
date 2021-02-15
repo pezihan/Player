@@ -5,8 +5,8 @@
 		<view class="content_top">
 			<view class="content_top_title">歌曲</view>
 			<view class="content_top_button">
-				<navigator url="navigate/navigate?title=navigate">
-					<i class="iconfont icon-bofang1"></i><view>全部播放</view>
+				<navigator url="" @click="allplay">
+					<i class="iconfont icon-bofang1" ></i><view>全部播放</view>
 				</navigator>
 				<navigator url="/pages/search/index">
 					<view><i class="iconfont icon-sousuo-"></i>搜索</view>
@@ -20,7 +20,7 @@
 					<uni-swipe-action-item :right-options="options" class="content_list" @click="deleteClick(item.id)" v-for="item in songList" :key="item.id">
 						<view class="content_bottom_list" @click="playMiscu(item.id)">
 							<view class="content_bottom_img"><image :src="item.img" ></image></view>
-							<view class="content_bottom_view">
+							<view :class="item.pitchOnClass===true?'content_bottom_view pitchOn':'content_bottom_view'">
 								<view>{{item.songName}}</view>
 								<view>{{item.name}}</view>
 							</view>
@@ -72,8 +72,14 @@
 			// 播放音乐
 			playMiscu(id) {
 				uni.navigateTo({
-                 url: '/pages/play/index?id=' + id
-            });
+                 	url: '/pages/play/index?id=' + id
+            	});
+			},
+			// 全部播放
+			allplay() {
+				uni.navigateTo({
+                 	url: '/pages/play/index?id=' + this.songList[0].id
+            	});
 			}
 		},
 		components: {
@@ -84,6 +90,12 @@
 </script>
 
 <style lang="scss" scoped>
+// 选中
+    .pitchOn {
+        view {
+			color: #e75866!important;
+		}
+    }
 	.status_bar {
 		height: var(--status-bar-height);
 		width: 100%;
@@ -126,6 +138,9 @@
 			.list_content_scroll {
 				// padding: 15rpx 0;
 				height: calc(100vh - 350rpx);
+				::-webkit-scrollbar{
+                    display: none;
+                }
 				.content_bottom_list {
 					display: flex;
 					justify-content: space-between;

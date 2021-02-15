@@ -26,10 +26,10 @@
         </view>
         <!-- 搜索显示区 -->
         <view class="content_songs" v-show="songsListShow">
-            <scroll-view scroll-y enable-back-to-top class="list_content_scroll">
+            <scroll-view scroll-y enable-back-to-top class="list_content_scroll" @scrolltolower="scrolltolowerDatd">
                 <view class="content_bottom_list" v-for="item in songList" :key="item.id" @click="playMusic(item)">
 					<view class="content_bottom_img"><image :src="item.img" ></image></view>
-					<view class="content_bottom_view">
+					<view :class="item.pitchOnClass===true?'content_bottom_view pitchOn':'content_bottom_view'">
 						<view>{{item.songName}}</view>
 						<view>{{item.name}}</view>
 					</view>
@@ -44,9 +44,9 @@ export default {
     data() {
         return {
             // 最近搜索
-            recently: ["欧阳娜娜","周杰伦"],
+            recently: [],
             // 推荐搜索
-            recommend: ["青花瓷","星空","莫得"],
+            recommend: [],
             // 提交歌曲信息
             songGet: {
                 keywords: '',
@@ -58,8 +58,24 @@ export default {
             // 控制搜索列表显示
             songsListShow: false,
             // 音乐搜索列表
-            songList:[]
+            songList:[],
+            // 当前播放id
+            playId: null
         }
+    },
+    onShow() {
+        this.recently = uni.getStorageSync('recently') || []
+        this.playId = uni.getStorageSync('playId')
+        this.songList.forEach((item) => {
+            if(item.id == this.playId) {
+                item.pitchOnClass = true
+            } else {
+                 item.pitchOnClass = false
+            }
+        })
+    },
+    onLoad() {
+        this.getHot()
     },
     methods: {
         // 返回
@@ -71,22 +87,52 @@ export default {
         // 删除历史搜索
         deletelist () {
             this.recently = []
+            uni.setStorageSync('recently',[])
+        },
+        // 获取热搜
+        async getHot() {
+            const res = await this.request({url:'/search/hot',method:'get'})
+            const recommend = res.result.hots
+            this.recommend = []
+            for(let i = 0; i < 3;i++) {
+                this.recommend.push(recommend[i].first)
+            }
         },
         // 发送请求
         async getData() {
+            this.playId = uni.getStorageSync('playId')
             const res = await this.request({url:'/search',data: this.songGet,method:'get'})
             let list = []
             res.result.songs.forEach((item) => {
-                list.push({
+                if(item.id == this.playId) {
+                    list.push({
                     id: item.id,
                     songName: item.name,
                     name: item.album.name,
-                    img: item.album.artist.img1v1Url
-                })
+                    img: item.album.artist.img1v1Url,
+                    pitchOnClass: true
+                    })
+                } else {
+                    list.push({
+                    id: item.id,
+                    songName: item.name,
+                    name: item.album.name,
+                    img: item.album.artist.img1v1Url,
+                    pitchOnClass: false
+                    })
+                }
             })
             this.songList = [...this.songList,...list]
             this.recommendShow = false
             this.songsListShow = true
+
+            let isCollect = this.recently.some(v=>v===this.songGet.keywords);
+            if (isCollect === true) {
+                return
+            }
+            this.recently.splice(2,1)
+            this.recently.unshift(this.songGet.keywords)
+            uni.setStorageSync('recently',this.recently)
         },
         // 按下回车
         handleEnterClick() {
@@ -118,12 +164,23 @@ export default {
             uni.navigateTo({
                  url: '/pages/play/index?id=' + item.id
             });
+        },
+        // 滚动触底加载事件
+        scrolltolowerDatd() {
+            this.songGet.offset++
+            this.getData()
         }
     }
 }
 </script>
 
 <style lang="scss" scoped>
+// 选中
+    .pitchOn {
+        view {
+			color: #e75866!important;
+		}
+    }
     .status_bar {
 		height: var(--status-bar-height);
 		width: 100%;
@@ -222,6 +279,9 @@ export default {
 			.list_content_scroll {
 				// padding: 15rpx 0;
 				height: calc(100vh - 240rpx);
+                ::-webkit-scrollbar{
+                    display: none;
+                }
 				.content_bottom_list {
 					display: flex;
 					justify-content: space-between;
